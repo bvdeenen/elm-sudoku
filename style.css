@@ -37,3 +37,11 @@
 .sudoku .p8 { left: 33%; bottom: 0;}
 .sudoku .p9 { right:0; bottom: 0; }
 
+
+.sudoku > div:nth-child(3n+0) {
+    border-bottom: thin solid black;
+}
+
+.sudoku .cell:nth-child(3n+0) {
+    border-right: 2px solid black;
+}
