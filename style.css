@@ -1,0 +1,39 @@
+.sudoku .cell {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border: thin solid green;
+    margin: 2px;
+    overflow: hidden;
+}
+.sudoku .cell .content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    position: relative;
+}
+.sudoku .cell .content.Filled {
+    font-size: xx-large;
+    color: green;
+}
+
+.sudoku .cell .content.Possibles .Possible  {
+    position: absolute;
+    display: block;
+    font-size: 10px;
+    width: 30%;
+    height: 30%;
+    text-align: center;
+}
+
+.sudoku .p1 { left: 0; top: 0; }
+.sudoku .p2 { left: 33%; top: 0;}
+.sudoku .p3 { right:0; top: 0; }
+.sudoku .p4 { left: 0; top: 33%; }
+.sudoku .p5 { left: 33%; top: 33%; }
+.sudoku .p6 { right:0; top: 33%; }
+.sudoku .p7 { left: 0; bottom: 0; }
+.sudoku .p8 { left: 33%; bottom: 0;}
+.sudoku .p9 { right:0; bottom: 0; }
+
