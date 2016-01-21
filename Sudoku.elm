@@ -137,10 +137,24 @@ removePossiblesFromSquares model =
        Matrix.mapWithLocation filter model
 
 
+handle1Possibles: Model -> Model
+handle1Possibles model = 
+   Matrix.map (\el ->
+       case el of 
+           Filled _ ->
+               el
+           Possibles [x] ->
+               Filled x
+           Possibles _ ->
+               el
+           Bug ->
+               Bug
+       ) model
+
 
 -- UPDATE
 
-type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines
+type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines | Handle1Possibles
 
 update : Action -> Model -> Model
 update action model =
@@ -149,6 +163,8 @@ update action model =
       removePossiblesFromSquares model
     RemovePossiblesFromLines ->
       removePossiblesFromLines model
+    Handle1Possibles ->
+      handle1Possibles model
 
 
 -- VIEW
@@ -181,6 +197,7 @@ view address model =
          [ div [class "sudoku"] (List.map htmlRow (rows model))
          , button [ onClick address RemovePossiblesFromSquare ] [ text "#" ]
          , button [ onClick address RemovePossiblesFromLines ] [ text "L" ]
+         , button [ onClick address Handle1Possibles ] [ text "1" ]
          ]
 
 
