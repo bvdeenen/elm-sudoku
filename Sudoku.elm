@@ -1,5 +1,7 @@
 module Sudoku where
 
+import Dict
+
 import Html exposing (..)
 import Html.Attributes exposing (style, class)
 import Html.Events exposing (onClick)
@@ -8,6 +10,9 @@ import Set
 import String
 import Maybe
 import Array
+import Utils exposing (..)
+import Debug
+
 
 
 -- MODEL
@@ -15,16 +20,47 @@ import Array
 type Cell = Filled Int | Possibles (List Int) | Bug
 type alias Model = Matrix (Cell)
 
-easy = [ "..48.96.."
-      , "8.1...2.5"
-      , "6..7.5..3"
-      , "..3.4.5.."
-      , ".5.....5."
-      , "..8.9.1.."
-      , "9..2.4..7"
-      , "1.5...9.8"
-      , "..79.15.."
+easy = [ "9...2....",
+         "7.1..4..8",
+         ".32.7..4.",
+         "...6.78..",
+         ".8.....7.",
+         "..65.1...",
+         ".4..6.58.",
+         "5..4..6.9",
+         "....1...7"
       ]
+
+medium = [".....67.."
+         ,"....8.3.4"
+         ,"..8....15"
+         ,".3..64.2."
+         ,"..5...9.."
+         ,".8.57..4."
+         ,"35....6.."
+         ,"8.7.3...."
+         ,"..17....."
+         ]
+hard = [ "..9.1...5"
+        ,".8.65.9.."
+        ,"......4.."
+        ,".6......7"
+        ,"4.1.7.3.9"
+        ,"3......6."
+        ,"..3......"
+        ,"..8.32.4."
+        ,"7...9.1.."
+        ]
+extreme = [ ".9.1.6.8."
+           ,"5...9...7"
+           ,".2.....9."
+           ,"..6.8.9.."
+           ,"...4.2..."
+           ,"..4.3.1.."
+           ,".4.....7."
+           ,"3...7...9"
+           ,".6.8.3.5."
+           ]
 
 charListToModel: (List String) -> Model
 charListToModel lines =
@@ -43,7 +79,7 @@ charListToModel lines =
 
 init : Model
 init =
-    charListToModel easy
+    charListToModel extreme
 
 subMatrix: (Int,Int) -> (Int,Int) -> Model -> Model
 subMatrix loc size matrix = 
@@ -81,7 +117,7 @@ removePossiblesFromLines model =
         rowValues = Array.map (\rowArray -> filledInValues' rowArray) model
         columnValues = Array.fromList ( List.map (\colNr -> 
             filledInValues  (extractColumn colNr model) 
-        ) [0..(Matrix.colCount model)])
+        ) [0..((Matrix.colCount model)-1)])
         filter location el =
             let
                 (r,c)=location
@@ -103,25 +139,54 @@ removePossiblesFromLines model =
        Matrix.mapWithLocation filter model
 
 
+
+
+handleSingleOnLine: Model -> Model
+handleSingleOnLine model = 
+     let
+         coordModel = Matrix.mapWithLocation (,) model
+         rowsAndColumns: List (List (Location, Cell))
+         rowsAndColumns = Matrix.toList coordModel ++  List.map (\colNr ->
+             extractColumn colNr coordModel
+         ) [0..((Matrix.colCount coordModel)-1)]
+         unFilleds: List (List (Location, List Int))
+         unFilleds = 
+             (Debug.watch "unFilleds" (List.map ( \vec ->
+                 List.filterMap ( \(loc, cell) ->
+                     case cell of
+                         Possibles possibles ->
+                             Just (loc, possibles)
+                         _ ->
+                             Nothing
+
+                 ) vec
+             ) rowsAndColumns))
+         singles = (Debug.log "singles" (Dict.fromList (List.foldl ( \vec accu ->
+            (findSingles vec) ++ accu ) [] unFilleds)))
+     in
+        Matrix.mapWithLocation (\location value ->
+            case Dict.get location singles of
+                Nothing ->
+                    value
+                Just single->
+                    Filled single
+        ) model
+
 removePossiblesFromSquares: Model -> Model
 removePossiblesFromSquares model = 
     let
-        subMatrices = Matrix.square 3 (\loc ->
+        subMatrices = Matrix.square 3 (\(r,c) ->
             let
-                (r,c)=loc
                 pos = (3*r, 3*c)
                 matrix3x3 = subMatrix pos (3,3) model
                 values = filledInValues (Matrix.flatten matrix3x3)
             in
-               (matrix3x3, values)
-           )
+               (matrix3x3, values))
         filter location el =
             let
                 (r,c)=location
             in
                case el of
-                   Filled _ ->
-                       el
                    Possibles possibles ->
                        let
                            possiblesSet = Set.fromList possibles
@@ -131,8 +196,8 @@ removePossiblesFromSquares model =
                                    Possibles (Set.toList (Set.diff possiblesSet values))
                                 Nothing ->
                                    Bug
-                   Bug ->
-                       Bug
+                   _ ->
+                       el
     in
        Matrix.mapWithLocation filter model
 
@@ -154,17 +219,26 @@ handle1Possibles model =
 
 -- UPDATE
 
-type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines | Handle1Possibles
+type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines | Handle1Possibles | 
+        HandleSingleOnLine | Test
 
 update : Action -> Model -> Model
 update action model =
-  case action of
+  case (Debug.log "action" action) of
     RemovePossiblesFromSquare ->
       removePossiblesFromSquares model
     RemovePossiblesFromLines ->
       removePossiblesFromLines model
     Handle1Possibles ->
-      handle1Possibles model
+      model |> removePossiblesFromLines |> removePossiblesFromSquares |> handle1Possibles
+    HandleSingleOnLine ->
+      model |> removePossiblesFromLines |> removePossiblesFromSquares |> handleSingleOnLine
+    Test ->
+        let 
+            m = handleSingleOnLine model
+        in
+          model
+
 
 
 -- VIEW
@@ -198,6 +272,8 @@ view address model =
          , button [ onClick address RemovePossiblesFromSquare ] [ text "#" ]
          , button [ onClick address RemovePossiblesFromLines ] [ text "L" ]
          , button [ onClick address Handle1Possibles ] [ text "1" ]
+         , button [ onClick address HandleSingleOnLine ] [ text "1L" ]
+         , button [ onClick address Test ] [ text "Test" ]
          ]
 
 
