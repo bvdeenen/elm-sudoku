@@ -100,6 +100,7 @@ extractColumn c m =
     List.filterMap ( \rowNr -> Matrix.get (rowNr, c) m) [0..(Matrix.rowCount m)]
         
 
+-- return only the Filled values from a list
 filledInValues: List Cell -> Set.Set Int
 filledInValues list = 
     Set.fromList ( List.filterMap (\v -> 
@@ -109,12 +110,16 @@ filledInValues list =
             Bug -> Nothing
         ) list)
 
+-- remove possibles from lines where there's a Filled value
+-- in horizontal or vertical direction
 removePossiblesFromLines: Model -> Model
 removePossiblesFromLines model =
     let
-        filledInValues' array = filledInValues (Array.toList array)
         -- rowValues and columnValues are arrays of Set Int
-        rowValues = Array.map (\rowArray -> filledInValues' rowArray) model
+        -- they represent for each row or column those values that are already picked
+        rowValues: Array.Array (Set.Set Int)
+        rowValues = Array.map (\rowArray -> filledInValues (Array.toList rowArray)) model
+        columnValues: Array.Array (Set.Set Int)
         columnValues = Array.fromList ( List.map (\colNr -> 
             filledInValues  (extractColumn colNr model) 
         ) [0..((Matrix.colCount model)-1)])
@@ -140,6 +145,8 @@ removePossiblesFromLines model =
 
 
 
+-- See if there's only one location for a possible of a certain value on a row or column
+-- update the model by filling in those values
 
 handleSingleOnLine: Model -> Model
 handleSingleOnLine model = 
@@ -151,7 +158,7 @@ handleSingleOnLine model =
          ) [0..((Matrix.colCount coordModel)-1)]
          unFilleds: List (List (Location, List Int))
          unFilleds = 
-             (Debug.watch "unFilleds" (List.map ( \vec ->
+             List.map ( \vec ->
                  List.filterMap ( \(loc, cell) ->
                      case cell of
                          Possibles possibles ->
@@ -160,9 +167,10 @@ handleSingleOnLine model =
                              Nothing
 
                  ) vec
-             ) rowsAndColumns))
-         singles = (Debug.log "singles" (Dict.fromList (List.foldl ( \vec accu ->
-            (findSingles vec) ++ accu ) [] unFilleds)))
+             ) rowsAndColumns
+         singles: Dict.Dict Location Int
+         singles = Dict.fromList (List.foldl ( \vec accu ->
+            (findSingles vec) ++ accu ) [] unFilleds)
      in
         Matrix.mapWithLocation (\location value ->
             case Dict.get location singles of
@@ -202,18 +210,13 @@ removePossiblesFromSquares model =
        Matrix.mapWithLocation filter model
 
 
+-- fill all cells with just one possible
 handle1Possibles: Model -> Model
 handle1Possibles model = 
    Matrix.map (\el ->
        case el of 
-           Filled _ ->
-               el
-           Possibles [x] ->
-               Filled x
-           Possibles _ ->
-               el
-           Bug ->
-               Bug
+           Possibles [x] -> Filled x
+           _ -> el
        ) model
 
 
@@ -266,14 +269,22 @@ view address model =
                     ]
             ]
         htmlRow row = div [] (List.map oneCell row)
+        buttonLine (action,t) =
+            li [] [ 
+                span [] [text t]
+                , button [ onClick address action ] [text "do it"] ]
+
     in
        div [] 
          [ div [class "sudoku"] (List.map htmlRow (rows model))
-         , button [ onClick address RemovePossiblesFromSquare ] [ text "#" ]
-         , button [ onClick address RemovePossiblesFromLines ] [ text "L" ]
-         , button [ onClick address Handle1Possibles ] [ text "1" ]
-         , button [ onClick address HandleSingleOnLine ] [ text "1L" ]
-         , button [ onClick address Test ] [ text "Test" ]
+
+         , ol [] (List.map buttonLine [
+               (RemovePossiblesFromSquare, "remove possibles from 3x3 squares")
+             , (RemovePossiblesFromLines, "remove possibles from hor. and vert. lines")
+             , (Handle1Possibles, "#1, #2 and fill 1 single possibles in 3x3 squares")
+             , (HandleSingleOnLine, "#1, #2 and fill 1 single possible location in rows or columns")
+             , (Test, "test")
+             ] )
          ]
 
 

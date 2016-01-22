@@ -13,7 +13,6 @@ dictUpdate key val dict =
                 Just (val :: values) ) dict
                 
 dictUpdate': comparable -> (List a) -> (Dict.Dict comparable (List a)) -> (Dict.Dict comparable (List a))
-
 dictUpdate' key vals dict =
     List.foldl (\val accu ->
         dictUpdate key val accu
