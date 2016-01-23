@@ -1,4 +1,4 @@
-module Shrink.Sudoku where
+module Shrink.Utils where
 
 import Shrink exposing (Shrinker, array)
 import Matrix exposing (Matrix)
