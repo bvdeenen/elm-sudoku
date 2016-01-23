@@ -17,7 +17,7 @@ import Debug
 
 -- MODEL
 
-type Cell = Filled Int | Possibles (List Int) | Bug
+type Cell = Filled Int | Possibles (Set.Set Int) | Bug
 type alias Model = Matrix (Cell)
 
 easy = [ "9...2....",
@@ -67,7 +67,7 @@ charListToModel lines =
     let
         charToCell c =
             if c == '.' then
-               Possibles [1..9]
+               Possibles (Set.fromList [1..9])
            else
                 case String.toInt (String.fromChar c) of
                     Ok value -> Filled value
@@ -79,7 +79,7 @@ charListToModel lines =
 
 init : Model
 init =
-    charListToModel extreme
+    charListToModel hard
 
 subMatrix: (Int,Int) -> (Int,Int) -> Model -> Model
 subMatrix loc size matrix = 
@@ -132,12 +132,11 @@ removePossiblesFromLines model =
                        el
                    Possibles possibles ->
                        let
-                           possiblesSet = Set.fromList possibles
                            rowSet = Maybe.withDefault Set.empty (Array.get r rowValues)
                            colSet = Maybe.withDefault Set.empty (Array.get c columnValues)
                            allSet = Set.union rowSet colSet
                        in
-                           Possibles (Set.toList (Set.diff possiblesSet allSet))
+                           Possibles (Set.diff possibles allSet)
                    Bug ->
                        Bug
     in
@@ -156,7 +155,7 @@ handleSingleOnLine model =
          rowsAndColumns = Matrix.toList coordModel ++  List.map (\colNr ->
              extractColumn colNr coordModel
          ) [0..((Matrix.colCount coordModel)-1)]
-         unFilleds: List (List (Location, List Int))
+         unFilleds: List (List (Location, Set.Set Int))
          unFilleds = 
              List.map ( \vec ->
                  List.filterMap ( \(loc, cell) ->
@@ -196,14 +195,11 @@ removePossiblesFromSquares model =
             in
                case el of
                    Possibles possibles ->
-                       let
-                           possiblesSet = Set.fromList possibles
-                       in
-                           case Matrix.get (r//3, c//3) subMatrices of
-                                Just (_, values) ->
-                                   Possibles (Set.toList (Set.diff possiblesSet values))
-                                Nothing ->
-                                   Bug
+                       case Matrix.get (r//3, c//3) subMatrices of
+                            Just (_, values) ->
+                               Possibles (Set.diff possibles values)
+                            Nothing ->
+                               Bug
                    _ ->
                        el
     in
@@ -215,7 +211,10 @@ handle1Possibles: Model -> Model
 handle1Possibles model = 
    Matrix.map (\el ->
        case el of 
-           Possibles [x] -> Filled x
+           Possibles x -> 
+               case Set.toList x of
+                   [y] -> Filled y
+                   _ -> el
            _ -> el
        ) model
 
@@ -262,7 +261,7 @@ view address model =
                     List.map (\p -> 
                         span [class ("Possible p" ++ (toString p))] [
                             text (toString p)
-                        ]) possibles)
+                        ]) (Set.toList possibles))
                 Bug ->
                     span [class "content Bug"] [
                         text "BUG"

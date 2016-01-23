@@ -10449,6 +10449,7 @@ Elm.Utils.make = function (_elm) {
    $List = Elm.List.make(_elm),
    $Maybe = Elm.Maybe.make(_elm),
    $Result = Elm.Result.make(_elm),
+   $Set = Elm.Set.make(_elm),
    $Signal = Elm.Signal.make(_elm);
    var _op = {};
    var dictUpdate = F3(function (key,val,dict) {
@@ -10457,24 +10458,23 @@ Elm.Utils.make = function (_elm) {
       function (m) {
          var _p0 = m;
          if (_p0.ctor === "Nothing") {
-               return $Maybe.Just(_U.list([val]));
+               return $Maybe.Just($Set.singleton(val));
             } else {
-               return $Maybe.Just(A2($List._op["::"],val,_p0._0));
+               return $Maybe.Just(A2($Set.insert,val,_p0._0));
             }
       },
       dict);
    });
-   var dictUpdate$ = F3(function (key,vals,dict) {    return A3($List.foldl,F2(function (val,accu) {    return A3(dictUpdate,key,val,accu);}),dict,vals);});
    var reverseMap = function (tupleList) {
       return A3($List.foldl,
-      F2(function (_p1,accu) {    var _p2 = _p1;return A3($List.foldl,F2(function (val,accu$) {    return A3(dictUpdate,val,_p2._0,accu$);}),accu,_p2._1);}),
+      F2(function (_p1,accu) {    var _p2 = _p1;return A3($Set.foldl,F2(function (val,accu$) {    return A3(dictUpdate,val,_p2._0,accu$);}),accu,_p2._1);}),
       $Dict.empty,
       tupleList);
    };
    var findSingles = function (tupleList) {
       return A3($Dict.foldl,
       F3(function (val,locations,accu) {
-         var _p3 = locations;
+         var _p3 = $Set.toList(locations);
          if (_p3.ctor === "::" && _p3._1.ctor === "[]") {
                return A2($List._op["::"],{ctor: "_Tuple2",_0: _p3._0,_1: val},accu);
             } else {
@@ -10484,7 +10484,7 @@ Elm.Utils.make = function (_elm) {
       _U.list([]),
       reverseMap(tupleList));
    };
-   return _elm.Utils.values = {_op: _op,dictUpdate: dictUpdate,dictUpdate$: dictUpdate$,reverseMap: reverseMap,findSingles: findSingles};
+   return _elm.Utils.values = {_op: _op,dictUpdate: dictUpdate,reverseMap: reverseMap,findSingles: findSingles};
 };
 Elm.Sudoku = Elm.Sudoku || {};
 Elm.Sudoku.make = function (_elm) {
@@ -10536,7 +10536,7 @@ Elm.Sudoku.make = function (_elm) {
                     _U.list([$Html$Attributes.$class(A2($Basics._op["++"],"Possible p",$Basics.toString(p)))]),
                     _U.list([$Html.text($Basics.toString(p))]));
                  },
-                 _p2._0));
+                 $Set.toList(_p2._0)));
                default: return A2($Html.span,_U.list([$Html$Attributes.$class("content Bug")]),_U.list([$Html.text("BUG")]));}
          }()]));
       };
@@ -10608,8 +10608,7 @@ Elm.Sudoku.make = function (_elm) {
             case "Possibles": var colSet = A2($Maybe.withDefault,$Set.empty,A2($Array.get,c,columnValues));
               var rowSet = A2($Maybe.withDefault,$Set.empty,A2($Array.get,r,rowValues));
               var allSet = A2($Set.union,rowSet,colSet);
-              var possiblesSet = $Set.fromList(_p7._0);
-              return Possibles($Set.toList(A2($Set.diff,possiblesSet,allSet)));
+              return Possibles(A2($Set.diff,_p7._0,allSet));
             default: return Bug;}
       });
       return A2($Matrix.mapWithLocation,filter,model);
@@ -10629,10 +10628,9 @@ Elm.Sudoku.make = function (_elm) {
          var c = _p10._1;
          var _p11 = el;
          if (_p11.ctor === "Possibles") {
-               var possiblesSet = $Set.fromList(_p11._0);
                var _p12 = A2($Matrix.get,{ctor: "_Tuple2",_0: r / 3 | 0,_1: c / 3 | 0},subMatrices);
                if (_p12.ctor === "Just") {
-                     return Possibles($Set.toList(A2($Set.diff,possiblesSet,_p12._0._1)));
+                     return Possibles(A2($Set.diff,_p11._0,_p12._0._1));
                   } else {
                      return Bug;
                   }
@@ -10645,7 +10643,7 @@ Elm.Sudoku.make = function (_elm) {
    var Filled = function (a) {    return {ctor: "Filled",_0: a};};
    var charListToModel = function (lines) {
       var charToCell = function (c) {
-         if (_U.eq(c,_U.chr("."))) return Possibles(_U.range(1,9)); else {
+         if (_U.eq(c,_U.chr("."))) return Possibles($Set.fromList(_U.range(1,9))); else {
                var _p13 = $String.toInt($String.fromChar(c));
                if (_p13.ctor === "Ok") {
                      return Filled(_p13._0);
@@ -10656,7 +10654,7 @@ Elm.Sudoku.make = function (_elm) {
       };
       return $Matrix.fromList(A2($List.map,function (line) {    return A2($List.map,charToCell,$String.toList(line));},lines));
    };
-   var init = charListToModel(extreme);
+   var init = charListToModel(hard);
    var handleSingleOnLine = function (model) {
       var coordModel = A2($Matrix.mapWithLocation,F2(function (v0,v1) {    return {ctor: "_Tuple2",_0: v0,_1: v1};}),model);
       var rowsAndColumns = A2($Basics._op["++"],
@@ -10696,8 +10694,13 @@ Elm.Sudoku.make = function (_elm) {
       return A2($Matrix.map,
       function (el) {
          var _p18 = el;
-         if (_p18.ctor === "Possibles" && _p18._0.ctor === "::" && _p18._0._1.ctor === "[]") {
-               return Filled(_p18._0._0);
+         if (_p18.ctor === "Possibles") {
+               var _p19 = $Set.toList(_p18._0);
+               if (_p19.ctor === "::" && _p19._1.ctor === "[]") {
+                     return Filled(_p19._0);
+                  } else {
+                     return el;
+                  }
             } else {
                return el;
             }
@@ -10705,8 +10708,8 @@ Elm.Sudoku.make = function (_elm) {
       model);
    };
    var update = F2(function (action,model) {
-      var _p19 = A2($Debug.log,"action",action);
-      switch (_p19.ctor)
+      var _p20 = A2($Debug.log,"action",action);
+      switch (_p20.ctor)
       {case "RemovePossiblesFromSquare": return removePossiblesFromSquares(model);
          case "RemovePossiblesFromLines": return removePossiblesFromLines(model);
          case "Handle1Possibles": return handle1Possibles(removePossiblesFromSquares(removePossiblesFromLines(model)));

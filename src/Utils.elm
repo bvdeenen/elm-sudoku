@@ -2,34 +2,31 @@
 module Utils where
 
 import Dict
+import Set
 
-dictUpdate: comparable -> a -> (Dict.Dict comparable (List a)) -> (Dict.Dict comparable (List a))
+dictUpdate: comparable -> comparable' -> (Dict.Dict comparable (Set.Set comparable')) 
+    -> (Dict.Dict comparable (Set.Set comparable'))
 dictUpdate key val dict =
     Dict.update key (\m ->
         case m of 
             Nothing ->
-                Just [val]
+                Just (Set.singleton val)
             Just values ->
-                Just (val :: values) ) dict
+                Just (Set.insert val values )) dict
                 
-dictUpdate': comparable -> (List a) -> (Dict.Dict comparable (List a)) -> (Dict.Dict comparable (List a))
-dictUpdate' key vals dict =
-    List.foldl (\val accu ->
-        dictUpdate key val accu
-        ) dict vals
 
-reverseMap:  List (a, List comparable) -> Dict.Dict comparable (List a)
+reverseMap:  List (comparable', Set.Set comparable) -> Dict.Dict comparable (Set.Set comparable')
 reverseMap tupleList =
     List.foldl (\(loc, values) accu ->
-        List.foldl (\val accu' ->
+        Set.foldl (\val accu' ->
             dictUpdate val loc accu'
         ) accu values
     ) Dict.empty tupleList
 
-findSingles:  List (a, List comparable) -> List (a, comparable)
+findSingles:  List (comparable', Set.Set comparable) -> List (comparable', comparable)
 findSingles tupleList =
     Dict.foldl (\val locations accu ->
-        case locations of 
+        case Set.toList locations of 
             [loc] ->
                 (loc, val) :: accu
             _ ->

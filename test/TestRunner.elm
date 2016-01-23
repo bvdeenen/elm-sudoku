@@ -1,15 +1,16 @@
-module Main where
 
-import Signal exposing (Signal)
+import Check exposing (..)
+import Check.Runner.Browser exposing (display)
 
-import ElmTest exposing (consoleRunner)
-import Console exposing (IO, run)
-import Task
+import UtilsTest
 
-import Tests
 
-console : IO ()
-console = consoleRunner Tests.all
+tests : Claim
+tests = suite "Utils Tests"
+        [ UtilsTest.tests
+        ]
 
-port runner : Signal (Task.Task x ())
-port runner = run console
+result : Evidence
+result = quickCheck tests
+
+main = display result

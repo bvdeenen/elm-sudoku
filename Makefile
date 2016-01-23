@@ -35,4 +35,4 @@ test:
 
 
 quickcheck:
-	$(CC) test/QuickCheck.elm --output build/quickcheck.html
+	$(CC) test/TestRunner.elm --output build/quickcheck.html
