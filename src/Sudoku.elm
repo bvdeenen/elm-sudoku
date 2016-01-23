@@ -180,13 +180,13 @@ handleSingleOnLine model =
                     Filled single
         ) model
 
+-- remove possibles from Filled values in all 3x3 squares
 removePossiblesFromSquares: Model -> Model
 removePossiblesFromSquares model = 
     let
         subMatrices = Matrix.square 3 (\(r,c) ->
             let
-                pos = (3*r, 3*c)
-                matrix3x3 = subMatrix pos (3,3) model
+                matrix3x3 = subMatrix (3*r, 3*c) (3,3) model
                 values = filledInValues (Matrix.flatten matrix3x3)
             in
                (matrix3x3, values))
