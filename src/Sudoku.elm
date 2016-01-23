@@ -283,7 +283,7 @@ view address model =
              , (RemovePossiblesFromLines, "remove possibles from hor. and vert. lines")
              , (Handle1Possibles, "#1, #2 and fill 1 single possibles in 3x3 squares")
              , (HandleSingleOnLine, "#1, #2 and fill 1 single possible location in rows or columns")
-             , (Test, "test")
+             , (Test, "testing..")
              ] )
          ]
 

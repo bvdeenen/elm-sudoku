@@ -1,2 +1,6 @@
 elm-stuff/
 elm.js
+test.html
+npm-debug.log
+.*.swp
+build/quickcheck.html
