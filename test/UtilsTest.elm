@@ -6,19 +6,49 @@ import Check.Investigator exposing (..)
 import Check.Investigator.Utils exposing (..)
 import Maybe as M exposing (..)
 import Debug
+import Matrix exposing (Matrix, Location)
 
 import Utils
+import Dict
+import Set
 
 tests = suite "Utils test suite"
-  [ -- claim_to_list_and_from_list_are_inverses
+  [ claim_findSingles_finds_values_that_exist_only_once
   ]
 
--- claim_to_list_and_from_list_are_inverses =
---   claim
---     "reverseMap and reverseMap' are inverses"
---   `that`
---     (Utils.reverseMap >> Utils.reverseMap')
---   `is`
---     identity
---   `for`
---     dictOfList location
+claim_findSingles_finds_values_that_exist_only_once =
+  claim
+    "findSingles partitions the tuple list correctly"
+  `true`
+    ( \tuples -> 
+        let
+            singles: Set.Set (Int,Int)
+            singles  = (Utils.findSingles tuples) |> List.sort |> Set.fromList |> (Debug.log "singles")
+            allValues: List (Int)
+            allValues = List.foldl (\(key, values) accu ->
+                Set.union accu values
+            ) Set.empty tuples |> Set.toList
+            locationsMap: List (Int, List(Int))
+            locationsMap = List.map (\value ->
+                (value, List.filterMap ( \(key, values) ->
+                    case Set.member value values of 
+                        True -> Just key
+                        False -> Nothing
+                ) tuples)
+            ) allValues 
+            valuesOnOnlyOneLocation: Set.Set (Int,Int)
+            valuesOnOnlyOneLocation = List.filterMap (\(value, locations) ->
+                case locations of
+                    [loc] -> Just (loc, value)
+                    _ -> Nothing
+                ) locationsMap |> List.sort |> Set.fromList
+        in
+           valuesOnOnlyOneLocation == singles
+
+    )
+  `for`
+    dictOfList 
+
+location : Investigator Location
+location =
+  tuple (rangeInt -10 50, rangeInt -10 50)
