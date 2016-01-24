@@ -4,10 +4,13 @@ INSTALL = install
 SRC = src
 TEST = test
 OPEN = xdg-open
+NODE = node
+BASH = bash
 
 PACKAGE_FLAGS = -y
 
 BUILD_DIR = build
+RESOURCES_DIR = resources
 
 .PHONY: test quickcheck
 
