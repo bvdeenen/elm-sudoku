@@ -3,5 +3,5 @@ node_js:
 - stable
 install:
 - npm install -g elm
-- elm-package install
+- elm-package install -y
 script: make test
