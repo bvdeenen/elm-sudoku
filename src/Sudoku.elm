@@ -266,26 +266,44 @@ view : Signal.Address Action -> Model -> Html
 view address model =
     let
         new = .new model
-        rows new = Matrix.toList new
-        oneCell cell = 
-            span [class "cell"] [
-            case cell of
-                Filled value ->
-                    span [class "content Filled"] [
-                        text ( toString value)
-                    ]
-                Possibles possibles ->
-                    span [class "content Possibles"]  (
-                    List.map (\p -> 
-                        span [class ("Possible p" ++ (toString p))] [
-                            text (toString p)
-                        ]) (Set.toList possibles))
-                Bug ->
-                    span [class "content Bug"] [
-                        text "BUG"
-                    ]
-            ]
-        htmlRow row = div [] (List.map oneCell row)
+        old = .old model
+        rows new = List.map2 (,) (Matrix.toList old) (Matrix.toList new)
+        oneCell (oldCell,cell) = 
+            let
+                possibles oldP newP =
+                    Set.diff oldP newP |> Set.toList
+
+                (highlight, lostPossibles) = 
+                    if oldCell == cell  then
+                       ("", [])
+                   else
+                        case (oldCell, cell) of 
+                        (Possibles oldP, Possibles newP) -> ("", (possibles oldP newP))
+                        (Possibles _, Filled _) -> ("changed", [])
+                        _ -> ("", []) -- unchanged
+            in
+                span [class ("cell " ++ highlight)] [
+                case cell of
+                    Filled value ->
+                        span [class "content Filled"] [
+                            text ( toString value)
+                        ]
+                    Possibles possibles ->
+                        span [class "content Possibles"]  ((
+                        List.map (\p -> 
+                            span [class ("Possible p" ++ (toString p))] [
+                                text (toString p)
+                            ]) (Set.toList possibles)) ++
+                        List.map (\p -> 
+                            span [class ("Possible highlight p" ++ (toString p))] [
+                                text (toString p)
+                            ]) lostPossibles)
+                    Bug ->
+                        span [class "content Bug"] [
+                            text "BUG"
+                        ]
+                ]
+        htmlRow (oldrow, row) = div [] (List.map oneCell ( List.map2 (,) oldrow row) )
         buttonLine (action,t) =
             li [] [ 
                 span [] [text t]

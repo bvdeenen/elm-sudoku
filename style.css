@@ -26,6 +26,37 @@
     height: 30%;
     text-align: center;
 }
+.changed {
+   animation: yellow-background-fade 2s ease-in 1;
+   animation-fill-mode: forwards;
+}
+
+@keyframes yellow-background-fade {
+   0% {
+       background: yellow;
+   }
+   100% {
+      background: none;
+   }
+}
+
+@keyframes yellow-fade {
+   0% {
+       background: yellow;
+       color: black;
+       opacity: 1;
+   }
+   100% {
+      background: none;
+        color: rgba(255,255,255,0);
+       opacity: 0;
+   }
+}
+
+.highlight {
+   animation: yellow-fade 2s ease-in 1;
+   animation-fill-mode: forwards;
+}
 
 .sudoku .p1 { left: 0; top: 0; }
 .sudoku .p2 { left: 33%; top: 0;}
@@ -45,3 +76,5 @@
 .sudoku .cell:nth-child(3n+0) {
     border-right: 2px solid black;
 }
+
+
