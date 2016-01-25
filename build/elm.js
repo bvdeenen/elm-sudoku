@@ -10541,10 +10541,11 @@ Elm.Sudoku.make = function (_elm) {
          }()]));
       };
       var htmlRow = function (row) {    return A2($Html.div,_U.list([]),A2($List.map,oneCell,row));};
-      var rows = function (model) {    return $Matrix.toList(model);};
+      var rows = function ($new) {    return $Matrix.toList($new);};
+      var $new = function (_) {    return _.$new;}(model);
       return A2($Html.div,
       _U.list([]),
-      _U.list([A2($Html.div,_U.list([$Html$Attributes.$class("sudoku")]),A2($List.map,htmlRow,rows(model)))
+      _U.list([A2($Html.div,_U.list([$Html$Attributes.$class("sudoku")]),A2($List.map,htmlRow,rows($new)))
               ,A2($Html.ol,
               _U.list([]),
               A2($List.map,
@@ -10589,6 +10590,7 @@ Elm.Sudoku.make = function (_elm) {
    var hard = _U.list(["..9.1...5",".8.65.9..","......4..",".6......7","4.1.7.3.9","3......6.","..3......","..8.32.4.","7...9.1.."]);
    var medium = _U.list([".....67..","....8.3.4","..8....15",".3..64.2.","..5...9..",".8.57..4.","35....6..","8.7.3....","..17....."]);
    var easy = _U.list(["9...2....","7.1..4..8",".32.7..4.","...6.78..",".8.....7.","..65.1...",".4..6.58.","5..4..6.9","....1...7"]);
+   var Model = F2(function (a,b) {    return {old: a,$new: b};});
    var Bug = {ctor: "Bug"};
    var Possibles = function (a) {    return {ctor: "Possibles",_0: a};};
    var removePossiblesFromLines = function (model) {
@@ -10654,7 +10656,7 @@ Elm.Sudoku.make = function (_elm) {
       };
       return $Matrix.fromList(A2($List.map,function (line) {    return A2($List.map,charToCell,$String.toList(line));},lines));
    };
-   var init = charListToModel(hard);
+   var init = function () {    var model = charListToModel(hard);return {$new: model,old: model};}();
    var handleSingleOnLine = function (model) {
       var coordModel = A2($Matrix.mapWithLocation,F2(function (v0,v1) {    return {ctor: "_Tuple2",_0: v0,_1: v1};}),model);
       var rowsAndColumns = A2($Basics._op["++"],
@@ -10708,19 +10710,24 @@ Elm.Sudoku.make = function (_elm) {
       model);
    };
    var update = F2(function (action,model) {
-      var _p20 = A2($Debug.log,"action",action);
-      switch (_p20.ctor)
-      {case "RemovePossiblesFromSquare": return removePossiblesFromSquares(model);
-         case "RemovePossiblesFromLines": return removePossiblesFromLines(model);
-         case "Handle1Possibles": return handle1Possibles(removePossiblesFromSquares(removePossiblesFromLines(model)));
-         case "HandleSingleOnLine": return handleSingleOnLine(removePossiblesFromSquares(removePossiblesFromLines(model)));
-         default: var m = handleSingleOnLine(model);
-           return model;}
+      var old = function (_) {    return _.$new;}(model);
+      var updater = function () {
+         var _p20 = A2($Debug.log,"action",action);
+         switch (_p20.ctor)
+         {case "RemovePossiblesFromSquare": return removePossiblesFromSquares(old);
+            case "RemovePossiblesFromLines": return removePossiblesFromLines(old);
+            case "Handle1Possibles": return handle1Possibles(removePossiblesFromSquares(removePossiblesFromLines(old)));
+            case "HandleSingleOnLine": return handleSingleOnLine(removePossiblesFromSquares(removePossiblesFromLines(old)));
+            default: var m = handleSingleOnLine(old);
+              return old;}
+      }();
+      return {old: old,$new: updater};
    });
    return _elm.Sudoku.values = {_op: _op
                                ,Filled: Filled
                                ,Possibles: Possibles
                                ,Bug: Bug
+                               ,Model: Model
                                ,easy: easy
                                ,medium: medium
                                ,hard: hard

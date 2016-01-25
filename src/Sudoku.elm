@@ -18,7 +18,11 @@ import Debug
 -- MODEL
 
 type Cell = Filled Int | Possibles (Set.Set Int) | Bug
-type alias Model = Matrix (Cell)
+type alias SudokuModel = Matrix (Cell)
+type alias Model = {
+    old: SudokuModel
+    ,new : SudokuModel
+}
 
 easy = [ "9...2....",
          "7.1..4..8",
@@ -62,7 +66,7 @@ extreme = [ ".9.1.6.8."
            ,".6.8.3.5."
            ]
 
-charListToModel: (List String) -> Model
+charListToModel: (List String) -> SudokuModel
 charListToModel lines =
     let
         charToCell c =
@@ -79,9 +83,15 @@ charListToModel lines =
 
 init : Model
 init =
-    charListToModel hard
+    let 
+        model = charListToModel hard
+    in
+        {
+            new = model
+            , old = model
+        }
 
-subMatrix: (Int,Int) -> (Int,Int) -> Model -> Model
+subMatrix: (Int,Int) -> (Int,Int) -> SudokuModel -> SudokuModel
 subMatrix loc size matrix = 
     let
         (r0,c0) = loc
@@ -112,7 +122,7 @@ filledInValues list =
 
 -- remove possibles from lines where there's a Filled value
 -- in horizontal or vertical direction
-removePossiblesFromLines: Model -> Model
+removePossiblesFromLines: SudokuModel -> SudokuModel
 removePossiblesFromLines model =
     let
         -- rowValues and columnValues are arrays of Set Int
@@ -147,7 +157,7 @@ removePossiblesFromLines model =
 -- See if there's only one location for a possible of a certain value on a row or column
 -- update the model by filling in those values
 
-handleSingleOnLine: Model -> Model
+handleSingleOnLine: SudokuModel -> SudokuModel
 handleSingleOnLine model = 
      let
          coordModel = Matrix.mapWithLocation (,) model
@@ -180,7 +190,7 @@ handleSingleOnLine model =
         ) model
 
 -- remove possibles from Filled values in all 3x3 squares
-removePossiblesFromSquares: Model -> Model
+removePossiblesFromSquares: SudokuModel -> SudokuModel
 removePossiblesFromSquares model = 
     let
         subMatrices = Matrix.square 3 (\(r,c) ->
@@ -207,7 +217,7 @@ removePossiblesFromSquares model =
 
 
 -- fill all cells with just one possible
-handle1Possibles: Model -> Model
+handle1Possibles: SudokuModel -> SudokuModel
 handle1Possibles model = 
    Matrix.map (\el ->
        case el of 
@@ -226,21 +236,28 @@ type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines | Handle1Poss
 
 update : Action -> Model -> Model
 update action model =
-  case (Debug.log "action" action) of
-    RemovePossiblesFromSquare ->
-      removePossiblesFromSquares model
-    RemovePossiblesFromLines ->
-      removePossiblesFromLines model
-    Handle1Possibles ->
-      model |> removePossiblesFromLines |> removePossiblesFromSquares |> handle1Possibles
-    HandleSingleOnLine ->
-      model |> removePossiblesFromLines |> removePossiblesFromSquares |> handleSingleOnLine
-    Test ->
-        let 
-            m = handleSingleOnLine model
-        in
-          model
-
+    let
+        old = .new model
+        updater = 
+          case (Debug.log "action" action) of
+            RemovePossiblesFromSquare ->
+              removePossiblesFromSquares old
+            RemovePossiblesFromLines ->
+              removePossiblesFromLines old
+            Handle1Possibles ->
+              old |> removePossiblesFromLines |> removePossiblesFromSquares |> handle1Possibles
+            HandleSingleOnLine ->
+              old |> removePossiblesFromLines |> removePossiblesFromSquares |> handleSingleOnLine
+            Test ->
+                let 
+                    m=handleSingleOnLine old
+                in
+                  old
+    in
+       {
+           old = old
+           ,new = updater
+       }
 
 
 -- VIEW
@@ -248,7 +265,8 @@ update action model =
 view : Signal.Address Action -> Model -> Html
 view address model =
     let
-        rows model = Matrix.toList model
+        new = .new model
+        rows new = Matrix.toList new
         oneCell cell = 
             span [class "cell"] [
             case cell of
@@ -275,7 +293,7 @@ view address model =
 
     in
        div [] 
-         [ div [class "sudoku"] (List.map htmlRow (rows model))
+         [ div [class "sudoku"] (List.map htmlRow (rows new))
 
          , ol [] (List.map buttonLine [
                (RemovePossiblesFromSquare, "remove possibles from 3x3 squares")
