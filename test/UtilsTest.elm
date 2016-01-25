@@ -13,7 +13,8 @@ import Dict
 import Set
 
 tests = suite "Utils test suite"
-  [ claim_findSingles_finds_values_that_exist_only_once
+  [ 
+      claim_findSingles_finds_values_that_exist_only_once
   ]
 
 claim_findSingles_finds_values_that_exist_only_once =
@@ -23,7 +24,7 @@ claim_findSingles_finds_values_that_exist_only_once =
     ( \tuples -> 
         let
             singles: Set.Set (Int,Int)
-            singles  = (Utils.findSingles tuples) |> List.sort |> Set.fromList |> (Debug.log "singles")
+            singles  = (Utils.findSingles tuples) |> List.sort |> Set.fromList 
             allValues: List (Int)
             allValues = List.foldl (\(key, values) accu ->
                 Set.union accu values
@@ -48,6 +49,7 @@ claim_findSingles_finds_values_that_exist_only_once =
     )
   `for`
     dictOfList 
+
 
 location : Investigator Location
 location =

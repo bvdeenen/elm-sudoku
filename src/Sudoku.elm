@@ -84,14 +84,14 @@ charListToModel lines =
 init : Model
 init =
     let 
-        model = charListToModel hard
+        model = charListToModel extreme
     in
         {
             new = model
             , old = model
         }
 
-subMatrix: (Int,Int) -> (Int,Int) -> SudokuModel -> SudokuModel
+subMatrix: (Int,Int) -> (Int,Int) -> Matrix a -> Matrix a
 subMatrix loc size matrix = 
     let
         (r0,c0) = loc
@@ -189,6 +189,55 @@ handleSingleOnLine model =
                     Filled single
         ) model
 
+handlePairsInLine: Int -> SudokuModel -> SudokuModel
+handlePairsInLine groupCt model =
+     let
+         coordModel = Matrix.mapWithLocation (,) model
+         rowsAndColumns: List (List (Location, Cell))
+         rowsAndColumns = Matrix.toList coordModel ++  List.map (\colNr ->
+             extractColumn colNr coordModel
+         ) [0..((Matrix.colCount coordModel)-1)]
+
+         unFilleds: List (List (Location, Set.Set Int))
+         unFilleds = 
+             List.map ( \vec ->
+                 List.filterMap ( \(loc, cell) ->
+                     case cell of
+                         Possibles possibles ->
+                             Just (loc, possibles)
+                         _ ->
+                             Nothing
+
+                 ) vec
+             ) rowsAndColumns
+         doubles = List.map (\tupleList ->
+             Utils.findMultiples' tupleList groupCt
+         ) unFilleds |> Utils.combineListOfDicts |>  (Debug.log "doubles")
+    in
+       model
+
+handlePairsInSquare: Int -> SudokuModel -> SudokuModel
+handlePairsInSquare groupCt model =
+    let
+        coordModel: Matrix (Location, Cell)
+        coordModel = model |> (Matrix.mapWithLocation (,))
+
+        squares = Matrix.square 3 (\(r,c) ->
+                subMatrix (3*r, 3*c) (3,3) coordModel |> Matrix.flatten |>
+                ( List.filterMap (\(loc, cell) ->
+                             case cell of
+                                 Possibles possibles -> Just (loc, possibles)
+                                 _ -> Nothing
+                         )
+                ) )
+                |> Matrix.flatten |> (Debug.log "squares")
+        doubles = List.map (\tupleList ->
+            Utils.findMultiples' tupleList groupCt
+        ) squares |> Utils.combineListOfDicts |> (Debug.log "doubles")
+
+    in
+       model
+
 -- remove possibles from Filled values in all 3x3 squares
 removePossiblesFromSquares: SudokuModel -> SudokuModel
 removePossiblesFromSquares model = 
@@ -232,7 +281,8 @@ handle1Possibles model =
 -- UPDATE
 
 type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines | Handle1Possibles | 
-        HandleSingleOnLine | Test
+        HandleSingleOnLine | HandlePairsInSquare | HandleTripletsInSquare | 
+        HandlePairsInLine | HandleTripletsInLine | Test
 
 update : Action -> Model -> Model
 update action model =
@@ -248,6 +298,14 @@ update action model =
               old |> removePossiblesFromLines |> removePossiblesFromSquares |> handle1Possibles
             HandleSingleOnLine ->
               old |> removePossiblesFromLines |> removePossiblesFromSquares |> handleSingleOnLine
+            HandlePairsInSquare ->
+              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInSquare 2)
+            HandleTripletsInSquare ->
+              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInSquare 3)
+            HandlePairsInLine ->
+              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInLine 2)
+            HandleTripletsInLine ->
+              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInLine 3)
             Test ->
                 let 
                     m=handleSingleOnLine old
@@ -318,6 +376,10 @@ view address model =
              , (RemovePossiblesFromLines, "remove possibles from hor. and vert. lines")
              , (Handle1Possibles, "#1, #2 and fill 1 single possibles in 3x3 squares")
              , (HandleSingleOnLine, "#1, #2 and fill 1 single possible location in rows or columns")
+             , (HandlePairsInSquare, "#1, #2 and find pairs in a square")
+             , (HandleTripletsInSquare, "#1, #2 and find triplets in a square")
+             , (HandlePairsInLine, "#1, #2 and find pairs in a line")
+             , (HandleTripletsInLine, "#1, #2 and find triplets in a line")
              , (Test, "testing..")
              ] )
          ]

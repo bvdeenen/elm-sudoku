@@ -3,6 +3,7 @@ module Utils where
 
 import Dict
 import Set
+import Debug
 
 dictUpdate: comparable -> comparable' -> (Dict.Dict comparable (Set.Set comparable')) 
     -> (Dict.Dict comparable (Set.Set comparable'))
@@ -35,4 +36,26 @@ findSingles tupleList =
 
 
 
+findMultiples: List (comparable', Set.Set comparable) -> Dict.Dict (List comparable) (Set.Set comparable')
+findMultiples tupleList =
+    let
+        groups = List.map (\(val,set) ->
+            (val, Set.singleton (Set.toList set))
+        ) (reverseMap tupleList |> Dict.toList) 
 
+        groupedPositions: Dict.Dict (List comparable) (Set.Set comparable')
+        groupedPositions = reverseMap groups 
+    in
+        Dict.filter (\positions values ->
+            (List.length positions) == (Set.size values)
+        ) groupedPositions
+
+
+findMultiples': List (comparable', Set.Set comparable) -> Int -> Dict.Dict (List comparable) (Set.Set comparable')
+findMultiples' tupleList ct =
+    findMultiples tupleList |> Dict.filter (\pos _ -> (List.length pos) == ct)
+
+
+
+combineListOfDicts dicts = 
+    List.foldl (\dict acc -> Dict.union dict acc) Dict.empty  dicts

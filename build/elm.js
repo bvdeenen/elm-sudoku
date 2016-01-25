@@ -10452,6 +10452,7 @@ Elm.Utils.make = function (_elm) {
    $Set = Elm.Set.make(_elm),
    $Signal = Elm.Signal.make(_elm);
    var _op = {};
+   var combineListOfDicts = function (dicts) {    return A3($List.foldl,F2(function (dict,acc) {    return A2($Dict.union,dict,acc);}),$Dict.empty,dicts);};
    var dictUpdate = F3(function (key,val,dict) {
       return A3($Dict.update,
       key,
@@ -10484,7 +10485,26 @@ Elm.Utils.make = function (_elm) {
       _U.list([]),
       reverseMap(tupleList));
    };
-   return _elm.Utils.values = {_op: _op,dictUpdate: dictUpdate,reverseMap: reverseMap,findSingles: findSingles};
+   var findMultiples = function (tupleList) {
+      var groups = A2($List.map,
+      function (_p4) {
+         var _p5 = _p4;
+         return {ctor: "_Tuple2",_0: _p5._0,_1: $Set.singleton($Set.toList(_p5._1))};
+      },
+      $Dict.toList(reverseMap(tupleList)));
+      var groupedPositions = reverseMap(groups);
+      return A2($Dict.filter,F2(function (positions,values) {    return _U.eq($List.length(positions),$Set.size(values));}),groupedPositions);
+   };
+   var findMultiples$ = F2(function (tupleList,ct) {
+      return A2($Dict.filter,F2(function (pos,_p6) {    return _U.eq($List.length(pos),ct);}),findMultiples(tupleList));
+   });
+   return _elm.Utils.values = {_op: _op
+                              ,dictUpdate: dictUpdate
+                              ,reverseMap: reverseMap
+                              ,findSingles: findSingles
+                              ,findMultiples: findMultiples
+                              ,findMultiples$: findMultiples$
+                              ,combineListOfDicts: combineListOfDicts};
 };
 Elm.Sudoku = Elm.Sudoku || {};
 Elm.Sudoku.make = function (_elm) {
@@ -10509,6 +10529,10 @@ Elm.Sudoku.make = function (_elm) {
    $Utils = Elm.Utils.make(_elm);
    var _op = {};
    var Test = {ctor: "Test"};
+   var HandleTripletsInLine = {ctor: "HandleTripletsInLine"};
+   var HandlePairsInLine = {ctor: "HandlePairsInLine"};
+   var HandleTripletsInSquare = {ctor: "HandleTripletsInSquare"};
+   var HandlePairsInSquare = {ctor: "HandlePairsInSquare"};
    var HandleSingleOnLine = {ctor: "HandleSingleOnLine"};
    var Handle1Possibles = {ctor: "Handle1Possibles"};
    var RemovePossiblesFromLines = {ctor: "RemovePossiblesFromLines"};
@@ -10592,6 +10616,10 @@ Elm.Sudoku.make = function (_elm) {
                       ,{ctor: "_Tuple2",_0: RemovePossiblesFromLines,_1: "remove possibles from hor. and vert. lines"}
                       ,{ctor: "_Tuple2",_0: Handle1Possibles,_1: "#1, #2 and fill 1 single possibles in 3x3 squares"}
                       ,{ctor: "_Tuple2",_0: HandleSingleOnLine,_1: "#1, #2 and fill 1 single possible location in rows or columns"}
+                      ,{ctor: "_Tuple2",_0: HandlePairsInSquare,_1: "#1, #2 and find pairs in a square"}
+                      ,{ctor: "_Tuple2",_0: HandleTripletsInSquare,_1: "#1, #2 and find triplets in a square"}
+                      ,{ctor: "_Tuple2",_0: HandlePairsInLine,_1: "#1, #2 and find pairs in a line"}
+                      ,{ctor: "_Tuple2",_0: HandleTripletsInLine,_1: "#1, #2 and find triplets in a line"}
                       ,{ctor: "_Tuple2",_0: Test,_1: "testing.."}])))]));
    });
    var filledInValues = function (list) {
@@ -10612,17 +10640,67 @@ Elm.Sudoku.make = function (_elm) {
       },
       _U.range(0,$Matrix.rowCount(m)));
    });
+   var handlePairsInLine = F2(function (groupCt,model) {
+      var coordModel = A2($Matrix.mapWithLocation,F2(function (v0,v1) {    return {ctor: "_Tuple2",_0: v0,_1: v1};}),model);
+      var rowsAndColumns = A2($Basics._op["++"],
+      $Matrix.toList(coordModel),
+      A2($List.map,function (colNr) {    return A2(extractColumn,colNr,coordModel);},_U.range(0,$Matrix.colCount(coordModel) - 1)));
+      var unFilleds = A2($List.map,
+      function (vec) {
+         return A2($List.filterMap,
+         function (_p12) {
+            var _p13 = _p12;
+            var _p14 = _p13._1;
+            if (_p14.ctor === "Possibles") {
+                  return $Maybe.Just({ctor: "_Tuple2",_0: _p13._0,_1: _p14._0});
+               } else {
+                  return $Maybe.Nothing;
+               }
+         },
+         vec);
+      },
+      rowsAndColumns);
+      var doubles = A2($Debug.log,
+      "doubles",
+      $Utils.combineListOfDicts(A2($List.map,function (tupleList) {    return A2($Utils.findMultiples$,tupleList,groupCt);},unFilleds)));
+      return model;
+   });
    var subMatrix = F3(function (loc,size,matrix) {
       var slice = F3(function (list,start,size) {    return A2($List.take,size,A2($List.drop,start,list));});
-      var _p12 = size;
-      var rct = _p12._0;
-      var cct = _p12._1;
-      var _p13 = loc;
-      var r0 = _p13._0;
-      var c0 = _p13._1;
+      var _p15 = size;
+      var rct = _p15._0;
+      var cct = _p15._1;
+      var _p16 = loc;
+      var r0 = _p16._0;
+      var c0 = _p16._1;
       var rows = A3(slice,$Matrix.toList(matrix),r0,rct);
       var newRows = A2($List.map,function (row) {    return A3(slice,row,c0,cct);},rows);
       return $Matrix.fromList(newRows);
+   });
+   var handlePairsInSquare = F2(function (groupCt,model) {
+      var coordModel = A2($Matrix.mapWithLocation,F2(function (v0,v1) {    return {ctor: "_Tuple2",_0: v0,_1: v1};}),model);
+      var squares = A2($Debug.log,
+      "squares",
+      $Matrix.flatten(A2($Matrix.square,
+      3,
+      function (_p17) {
+         var _p18 = _p17;
+         return A2($List.filterMap,
+         function (_p19) {
+            var _p20 = _p19;
+            var _p21 = _p20._1;
+            if (_p21.ctor === "Possibles") {
+                  return $Maybe.Just({ctor: "_Tuple2",_0: _p20._0,_1: _p21._0});
+               } else {
+                  return $Maybe.Nothing;
+               }
+         },
+         $Matrix.flatten(A3(subMatrix,{ctor: "_Tuple2",_0: 3 * _p18._0,_1: 3 * _p18._1},{ctor: "_Tuple2",_0: 3,_1: 3},coordModel)));
+      })));
+      var doubles = A2($Debug.log,
+      "doubles",
+      $Utils.combineListOfDicts(A2($List.map,function (tupleList) {    return A2($Utils.findMultiples$,tupleList,groupCt);},squares)));
+      return model;
    });
    var extreme = _U.list([".9.1.6.8.","5...9...7",".2.....9.","..6.8.9..","...4.2...","..4.3.1..",".4.....7.","3...7...9",".6.8.3.5."]);
    var hard = _U.list(["..9.1...5",".8.65.9..","......4..",".6......7","4.1.7.3.9","3......6.","..3......","..8.32.4.","7...9.1.."]);
@@ -10639,16 +10717,16 @@ Elm.Sudoku.make = function (_elm) {
       _U.range(0,$Matrix.colCount(model) - 1)));
       var rowValues = A2($Array.map,function (rowArray) {    return filledInValues($Array.toList(rowArray));},model);
       var filter = F2(function (location,el) {
-         var _p14 = location;
-         var r = _p14._0;
-         var c = _p14._1;
-         var _p15 = el;
-         switch (_p15.ctor)
+         var _p22 = location;
+         var r = _p22._0;
+         var c = _p22._1;
+         var _p23 = el;
+         switch (_p23.ctor)
          {case "Filled": return el;
             case "Possibles": var colSet = A2($Maybe.withDefault,$Set.empty,A2($Array.get,c,columnValues));
               var rowSet = A2($Maybe.withDefault,$Set.empty,A2($Array.get,r,rowValues));
               var allSet = A2($Set.union,rowSet,colSet);
-              return Possibles(A2($Set.diff,_p15._0,allSet));
+              return Possibles(A2($Set.diff,_p23._0,allSet));
             default: return Bug;}
       });
       return A2($Matrix.mapWithLocation,filter,model);
@@ -10656,21 +10734,21 @@ Elm.Sudoku.make = function (_elm) {
    var removePossiblesFromSquares = function (model) {
       var subMatrices = A2($Matrix.square,
       3,
-      function (_p16) {
-         var _p17 = _p16;
-         var matrix3x3 = A3(subMatrix,{ctor: "_Tuple2",_0: 3 * _p17._0,_1: 3 * _p17._1},{ctor: "_Tuple2",_0: 3,_1: 3},model);
+      function (_p24) {
+         var _p25 = _p24;
+         var matrix3x3 = A3(subMatrix,{ctor: "_Tuple2",_0: 3 * _p25._0,_1: 3 * _p25._1},{ctor: "_Tuple2",_0: 3,_1: 3},model);
          var values = filledInValues($Matrix.flatten(matrix3x3));
          return {ctor: "_Tuple2",_0: matrix3x3,_1: values};
       });
       var filter = F2(function (location,el) {
-         var _p18 = location;
-         var r = _p18._0;
-         var c = _p18._1;
-         var _p19 = el;
-         if (_p19.ctor === "Possibles") {
-               var _p20 = A2($Matrix.get,{ctor: "_Tuple2",_0: r / 3 | 0,_1: c / 3 | 0},subMatrices);
-               if (_p20.ctor === "Just") {
-                     return Possibles(A2($Set.diff,_p19._0,_p20._0._1));
+         var _p26 = location;
+         var r = _p26._0;
+         var c = _p26._1;
+         var _p27 = el;
+         if (_p27.ctor === "Possibles") {
+               var _p28 = A2($Matrix.get,{ctor: "_Tuple2",_0: r / 3 | 0,_1: c / 3 | 0},subMatrices);
+               if (_p28.ctor === "Just") {
+                     return Possibles(A2($Set.diff,_p27._0,_p28._0._1));
                   } else {
                      return Bug;
                   }
@@ -10684,9 +10762,9 @@ Elm.Sudoku.make = function (_elm) {
    var charListToModel = function (lines) {
       var charToCell = function (c) {
          if (_U.eq(c,_U.chr("."))) return Possibles($Set.fromList(_U.range(1,9))); else {
-               var _p21 = $String.toInt($String.fromChar(c));
-               if (_p21.ctor === "Ok") {
-                     return Filled(_p21._0);
+               var _p29 = $String.toInt($String.fromChar(c));
+               if (_p29.ctor === "Ok") {
+                     return Filled(_p29._0);
                   } else {
                      return Bug;
                   }
@@ -10694,7 +10772,7 @@ Elm.Sudoku.make = function (_elm) {
       };
       return $Matrix.fromList(A2($List.map,function (line) {    return A2($List.map,charToCell,$String.toList(line));},lines));
    };
-   var init = function () {    var model = charListToModel(hard);return {$new: model,old: model};}();
+   var init = function () {    var model = charListToModel(extreme);return {$new: model,old: model};}();
    var handleSingleOnLine = function (model) {
       var coordModel = A2($Matrix.mapWithLocation,F2(function (v0,v1) {    return {ctor: "_Tuple2",_0: v0,_1: v1};}),model);
       var rowsAndColumns = A2($Basics._op["++"],
@@ -10703,11 +10781,11 @@ Elm.Sudoku.make = function (_elm) {
       var unFilleds = A2($List.map,
       function (vec) {
          return A2($List.filterMap,
-         function (_p22) {
-            var _p23 = _p22;
-            var _p24 = _p23._1;
-            if (_p24.ctor === "Possibles") {
-                  return $Maybe.Just({ctor: "_Tuple2",_0: _p23._0,_1: _p24._0});
+         function (_p30) {
+            var _p31 = _p30;
+            var _p32 = _p31._1;
+            if (_p32.ctor === "Possibles") {
+                  return $Maybe.Just({ctor: "_Tuple2",_0: _p31._0,_1: _p32._0});
                } else {
                   return $Maybe.Nothing;
                }
@@ -10721,11 +10799,11 @@ Elm.Sudoku.make = function (_elm) {
       unFilleds));
       return A2($Matrix.mapWithLocation,
       F2(function (location,value) {
-         var _p25 = A2($Dict.get,location,singles);
-         if (_p25.ctor === "Nothing") {
+         var _p33 = A2($Dict.get,location,singles);
+         if (_p33.ctor === "Nothing") {
                return value;
             } else {
-               return Filled(_p25._0);
+               return Filled(_p33._0);
             }
       }),
       model);
@@ -10733,11 +10811,11 @@ Elm.Sudoku.make = function (_elm) {
    var handle1Possibles = function (model) {
       return A2($Matrix.map,
       function (el) {
-         var _p26 = el;
-         if (_p26.ctor === "Possibles") {
-               var _p27 = $Set.toList(_p26._0);
-               if (_p27.ctor === "::" && _p27._1.ctor === "[]") {
-                     return Filled(_p27._0);
+         var _p34 = el;
+         if (_p34.ctor === "Possibles") {
+               var _p35 = $Set.toList(_p34._0);
+               if (_p35.ctor === "::" && _p35._1.ctor === "[]") {
+                     return Filled(_p35._0);
                   } else {
                      return el;
                   }
@@ -10750,12 +10828,16 @@ Elm.Sudoku.make = function (_elm) {
    var update = F2(function (action,model) {
       var old = function (_) {    return _.$new;}(model);
       var updater = function () {
-         var _p28 = A2($Debug.log,"action",action);
-         switch (_p28.ctor)
+         var _p36 = A2($Debug.log,"action",action);
+         switch (_p36.ctor)
          {case "RemovePossiblesFromSquare": return removePossiblesFromSquares(old);
             case "RemovePossiblesFromLines": return removePossiblesFromLines(old);
             case "Handle1Possibles": return handle1Possibles(removePossiblesFromSquares(removePossiblesFromLines(old)));
             case "HandleSingleOnLine": return handleSingleOnLine(removePossiblesFromSquares(removePossiblesFromLines(old)));
+            case "HandlePairsInSquare": return A2(handlePairsInSquare,2,removePossiblesFromSquares(removePossiblesFromLines(old)));
+            case "HandleTripletsInSquare": return A2(handlePairsInSquare,3,removePossiblesFromSquares(removePossiblesFromLines(old)));
+            case "HandlePairsInLine": return A2(handlePairsInLine,2,removePossiblesFromSquares(removePossiblesFromLines(old)));
+            case "HandleTripletsInLine": return A2(handlePairsInLine,3,removePossiblesFromSquares(removePossiblesFromLines(old)));
             default: var m = handleSingleOnLine(old);
               return old;}
       }();
@@ -10777,12 +10859,18 @@ Elm.Sudoku.make = function (_elm) {
                                ,filledInValues: filledInValues
                                ,removePossiblesFromLines: removePossiblesFromLines
                                ,handleSingleOnLine: handleSingleOnLine
+                               ,handlePairsInLine: handlePairsInLine
+                               ,handlePairsInSquare: handlePairsInSquare
                                ,removePossiblesFromSquares: removePossiblesFromSquares
                                ,handle1Possibles: handle1Possibles
                                ,RemovePossiblesFromSquare: RemovePossiblesFromSquare
                                ,RemovePossiblesFromLines: RemovePossiblesFromLines
                                ,Handle1Possibles: Handle1Possibles
                                ,HandleSingleOnLine: HandleSingleOnLine
+                               ,HandlePairsInSquare: HandlePairsInSquare
+                               ,HandleTripletsInSquare: HandleTripletsInSquare
+                               ,HandlePairsInLine: HandlePairsInLine
+                               ,HandleTripletsInLine: HandleTripletsInLine
                                ,Test: Test
                                ,update: update
                                ,view: view};
