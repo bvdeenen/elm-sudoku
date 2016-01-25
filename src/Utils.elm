@@ -36,7 +36,7 @@ findSingles tupleList =
 
 
 
-findMultiples: List (comparable', Set.Set comparable) -> Dict.Dict (List comparable) (Set.Set comparable')
+findMultiples: List (comparable', Set.Set comparable) -> Dict.Dict (List comparable') (Set.Set comparable)
 findMultiples tupleList =
     let
         groups = List.map (\(val,set) ->
@@ -51,7 +51,7 @@ findMultiples tupleList =
         ) groupedPositions
 
 
-findMultiples': List (comparable', Set.Set comparable) -> Int -> Dict.Dict (List comparable) (Set.Set comparable')
+findMultiples': List (comparable', Set.Set comparable) -> Int -> Dict.Dict (List comparable') (Set.Set comparable)
 findMultiples' tupleList ct =
     findMultiples tupleList |> Dict.filter (\pos _ -> (List.length pos) == ct)
 

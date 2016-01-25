@@ -192,27 +192,79 @@ handleSingleOnLine model =
 handlePairsInLine: Int -> SudokuModel -> SudokuModel
 handlePairsInLine groupCt model =
      let
-         coordModel = Matrix.mapWithLocation (,) model
-         rowsAndColumns: List (List (Location, Cell))
-         rowsAndColumns = Matrix.toList coordModel ++  List.map (\colNr ->
-             extractColumn colNr coordModel
-         ) [0..((Matrix.colCount coordModel)-1)]
 
-         unFilleds: List (List (Location, Set.Set Int))
-         unFilleds = 
-             List.map ( \vec ->
-                 List.filterMap ( \(loc, cell) ->
+         vector: List (Location, Cell) -> Maybe ( List (Location), List ((Set.Set (Location), Set.Set (Int))))
+         vector cells = 
+             let 
+                 filleds: List (Location, Set.Set Int)
+                 filleds = List.filterMap ( \(loc, cell) ->
                      case cell of
                          Possibles possibles ->
                              Just (loc, possibles)
                          _ ->
                              Nothing
 
-                 ) vec
-             ) rowsAndColumns
-         doubles = List.map (\tupleList ->
-             Utils.findMultiples' tupleList groupCt
-         ) unFilleds |> Utils.combineListOfDicts |>  (Debug.log "doubles")
+                 ) cells
+                 groupLists: List (List Location, Set.Set Int)
+                 groupLists = Utils.findMultiples' filleds groupCt |> Dict.toList |> (Debug.log "groupLists")
+                 groupSets =  groupLists |> (List.map (\(k,v) -> ((Set.fromList k), v))) 
+                        |> (Debug.log "groupSets")
+                 filledLocations: List Location
+                 filledLocations = List.map fst filleds |> (Debug.log "filledLocations")
+             in
+                case groupSets of
+                    [] -> Nothing
+                    _ -> Just (filledLocations, groupSets)
+
+
+         coordModel = Matrix.mapWithLocation (,) model
+         rowsAndColumns: List (List (Location, Cell))
+         rowsAndColumns = Matrix.toList coordModel ++  List.map (\colNr ->
+             extractColumn colNr coordModel
+         ) [0..((Matrix.colCount coordModel)-1)] 
+
+         -- for example vectors: 
+         --   [([(8,0),(8,2),(8,4),(8,6),(8,8)],[(Set.fromList [(8,0),(8,2)],Set.fromList [7,9])])]
+         vectors: List ( List (Location ), List ( Set.Set (Location), Set.Set (Int )))
+         vectors = List.filterMap vector rowsAndColumns|> (Debug.log "vectors")  
+
+         colupdater: List (Location) -> Set.Set (Location) -> Set.Set (Int) -> SudokuModel -> SudokuModel
+         colupdater locations group groupValues m = 
+             let
+                 cellUpdater: Location -> Cell -> Cell
+                 cellUpdater location cell =
+                     if Set.member location group then
+                        case cell of
+                            Possibles values -> Possibles group
+                            _ -> Bug
+                     else
+                        case cell of
+                            Possibles values -> Possibles (Set.diff values groupValues)
+                            _ -> Bug
+             in
+                 List.foldl (\location accu ->
+                     Matrix.update location (\cell ->
+                         cellUpdater location cell
+                    ) accu
+         ) m locations
+         
+--         doubles = List.map (\tupleList ->
+--             Utils.findMultiples' tupleList groupCt
+--         ) unFilleds |> Utils.combineListOfDicts |>  (Debug.log "doubles")
+--         updater tupleList m =
+--             let 
+--                 pairs = Utils.findMultiples' tupleList groupCt
+--                 cellUpdater loc cell groupSet values =
+--                     if Set.member loc groupSet then
+--                        Cell values
+--                     else
+--                        Set.diff cell values
+--             in
+--                List.foldl (\(loc,cell) m' -> 
+--                    Matrix.update loc kk
+--                ) m tupleList
+--
+--
     in
        model
 
@@ -231,9 +283,6 @@ handlePairsInSquare groupCt model =
                          )
                 ) )
                 |> Matrix.flatten |> (Debug.log "squares")
-        doubles = List.map (\tupleList ->
-            Utils.findMultiples' tupleList groupCt
-        ) squares |> Utils.combineListOfDicts |> (Debug.log "doubles")
 
     in
        model
