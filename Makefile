@@ -12,7 +12,7 @@ PACKAGE_FLAGS = -y
 BUILD_DIR = build
 RESOURCES_DIR = resources
 
-.PHONY: test quickcheck publish
+.PHONY: test quickcheck
 
 all: package/install clean compile
 
@@ -39,7 +39,3 @@ test:
 
 quickcheck:
 	$(CC) test/TestRunner.elm --output build/quickcheck.html
-
-publish:
-	cp style.css bvdeenen.github.io/sudoku
-	cp build/elm.js bvdeenen.github.io/sudoku/build
