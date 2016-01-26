@@ -193,28 +193,6 @@ handlePairsInLine: Int -> SudokuModel -> SudokuModel
 handlePairsInLine groupCt model =
      let
 
-         vector: List (Location, Cell) -> Maybe ( List (Location), List ((Set.Set (Location), Set.Set (Int))))
-         vector cells = 
-             let 
-                 filleds: List (Location, Set.Set Int)
-                 filleds = List.filterMap ( \(loc, cell) ->
-                     case cell of
-                         Possibles possibles ->
-                             Just (loc, possibles)
-                         _ ->
-                             Nothing
-
-                 ) cells
-                 groupLists: List (List Location, Set.Set Int)
-                 groupLists = Utils.findMultiples' filleds groupCt |> Dict.toList |> (Debug.log "groupLists")
-                 groupSets =  groupLists |> (List.map (\(k,v) -> ((Set.fromList k), v))) 
-                        |> (Debug.log "groupSets")
-                 filledLocations: List Location
-                 filledLocations = List.map fst filleds |> (Debug.log "filledLocations")
-             in
-                case groupSets of
-                    [] -> Nothing
-                    _ -> Just (filledLocations, groupSets)
 
 
          coordModel = Matrix.mapWithLocation (,) model
@@ -223,50 +201,72 @@ handlePairsInLine groupCt model =
              extractColumn colNr coordModel
          ) [0..((Matrix.colCount coordModel)-1)] 
 
+         vector' = \x -> vector groupCt x
          -- for example vectors: 
          --   [([(8,0),(8,2),(8,4),(8,6),(8,8)],[(Set.fromList [(8,0),(8,2)],Set.fromList [7,9])])]
-         vectors: List ( List (Location ), List ( Set.Set (Location), Set.Set (Int )))
-         vectors = List.filterMap vector rowsAndColumns|> (Debug.log "vectors")  
+         vectors: List ( List Location , List ( Set.Set Location, Set.Set Int ))
+         vectors = List.filterMap vector' rowsAndColumns
 
-         colupdater: List (Location) -> Set.Set (Location) -> Set.Set (Int) -> SudokuModel -> SudokuModel
+     in
+       modelUpdaterFromGroups model vectors
+
+vector: Int -> List (Location, Cell) -> Maybe ( List (Location), List ((Set.Set (Location), Set.Set (Int))))
+vector groupCt cells = 
+     let 
+         filleds: List (Location, Set.Set Int)
+         filleds = List.filterMap ( \(loc, cell) ->
+             case cell of
+                 Possibles possibles ->
+                     Just (loc, possibles)
+                 _ ->
+                     Nothing
+
+         ) cells
+         groupLists: List (List Location, Set.Set Int)
+         groupLists = Utils.findMultiples' filleds groupCt |> Dict.toList 
+         groupSets =  groupLists |> (List.map (\(k,v) -> ((Set.fromList k), v)))
+         filledLocations: List Location
+         filledLocations = List.map fst filleds 
+     in
+        case groupSets of
+            [] -> Nothing
+            _ -> Just (filledLocations, groupSets)
+
+modelUpdaterFromGroups: SudokuModel -> List ( List Location , List ( Set.Set Location, Set.Set Int )) ->SudokuModel
+modelUpdaterFromGroups model vectors = 
+    let
+         colupdater: List Location -> Set.Set Location -> Set.Set Int -> SudokuModel -> SudokuModel
          colupdater locations group groupValues m = 
              let
                  cellUpdater: Location -> Cell -> Cell
                  cellUpdater location cell =
-                     if Set.member location group then
-                        case cell of
-                            Possibles values -> Possibles group
-                            _ -> Bug
-                     else
-                        case cell of
-                            Possibles values -> Possibles (Set.diff values groupValues)
-                            _ -> Bug
+                     let 
+                         inGroup = Set.member location group 
+                     in
+                        if inGroup then
+                           case cell of
+                               Possibles values -> Possibles groupValues
+                               _ -> Bug
+                        else
+                           case cell of
+                               Possibles values -> cell
+                               _ -> Bug
              in
                  List.foldl (\location accu ->
                      Matrix.update location (\cell ->
                          cellUpdater location cell
                     ) accu
-         ) m locations
+                 ) m locations
          
---         doubles = List.map (\tupleList ->
---             Utils.findMultiples' tupleList groupCt
---         ) unFilleds |> Utils.combineListOfDicts |>  (Debug.log "doubles")
---         updater tupleList m =
---             let 
---                 pairs = Utils.findMultiples' tupleList groupCt
---                 cellUpdater loc cell groupSet values =
---                     if Set.member loc groupSet then
---                        Cell values
---                     else
---                        Set.diff cell values
---             in
---                List.foldl (\(loc,cell) m' -> 
---                    Matrix.update loc kk
---                ) m tupleList
---
---
-    in
-       model
+         colupdater': List Location -> List (Set.Set Location, Set.Set Int ) -> SudokuModel -> SudokuModel
+         colupdater' locations groups m =
+             List.foldl (\(group, groupValues) accu ->
+                 colupdater locations group groupValues accu
+             ) m groups
+     in   
+        List.foldl (\(locations, groups) accu ->
+             colupdater' locations groups accu
+         ) model vectors 
 
 handlePairsInSquare: Int -> SudokuModel -> SudokuModel
 handlePairsInSquare groupCt model =
@@ -275,17 +275,14 @@ handlePairsInSquare groupCt model =
         coordModel = model |> (Matrix.mapWithLocation (,))
 
         squares = Matrix.square 3 (\(r,c) ->
-                subMatrix (3*r, 3*c) (3,3) coordModel |> Matrix.flatten |>
-                ( List.filterMap (\(loc, cell) ->
-                             case cell of
-                                 Possibles possibles -> Just (loc, possibles)
-                                 _ -> Nothing
-                         )
-                ) )
-                |> Matrix.flatten |> (Debug.log "squares")
+                subMatrix (3*r, 3*c) (3,3) coordModel |> Matrix.flatten )
+            |> Matrix.flatten 
+        vector' = \x -> vector groupCt x
+        vectors: List ( List Location , List ( Set.Set Location, Set.Set Int ))
+        vectors = List.filterMap vector' squares
 
-    in
-       model
+     in
+       modelUpdaterFromGroups model vectors
 
 -- remove possibles from Filled values in all 3x3 squares
 removePossiblesFromSquares: SudokuModel -> SudokuModel
@@ -330,12 +327,13 @@ handle1Possibles model =
 -- UPDATE
 
 type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines | Handle1Possibles | 
-        HandleSingleOnLine | HandlePairsInSquare | HandleTripletsInSquare | 
-        HandlePairsInLine | HandleTripletsInLine | Test
+        HandleSingleOnLine | HandleSinglesInSquare | HandlePairsInSquare | HandleTripletsInSquare | 
+        HandlePairsInLine | HandleTripletsInLine | Undo | Test
 
 update : Action -> Model -> Model
 update action model =
     let
+        oldold = model.old
         old = .new model
         updater = 
           case (Debug.log "action" action) of
@@ -347,6 +345,8 @@ update action model =
               old |> removePossiblesFromLines |> removePossiblesFromSquares |> handle1Possibles
             HandleSingleOnLine ->
               old |> removePossiblesFromLines |> removePossiblesFromSquares |> handleSingleOnLine
+            HandleSinglesInSquare ->
+              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInSquare 1)
             HandlePairsInSquare ->
               old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInSquare 2)
             HandleTripletsInSquare ->
@@ -355,6 +355,8 @@ update action model =
               old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInLine 2)
             HandleTripletsInLine ->
               old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInLine 3)
+            Undo ->
+                oldold
             Test ->
                 let 
                     m=handleSingleOnLine old
@@ -425,11 +427,13 @@ view address model =
              , (RemovePossiblesFromLines, "remove possibles from hor. and vert. lines")
              , (Handle1Possibles, "#1, #2 and fill 1 single possibles in 3x3 squares")
              , (HandleSingleOnLine, "#1, #2 and fill 1 single possible location in rows or columns")
+             , (HandleSinglesInSquare, "#1, #2 and find singles in a square")
              , (HandlePairsInSquare, "#1, #2 and find pairs in a square")
              , (HandleTripletsInSquare, "#1, #2 and find triplets in a square")
              , (HandlePairsInLine, "#1, #2 and find pairs in a line")
              , (HandleTripletsInLine, "#1, #2 and find triplets in a line")
              , (Test, "testing..")
+             , (Undo, "undo..")
              ] )
          ]
 

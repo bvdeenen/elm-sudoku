@@ -54,8 +54,10 @@
 }
 
 .highlight {
-   animation: yellow-fade 2s ease-in 1;
-   animation-fill-mode: forwards;
+   /*animation: yellow-fade 2s ease-in 1;
+   animation-fill-mode: forwards;*/
+    background-color: orange;
+    opacity: 0.5;
 }
 
 .sudoku .p1 { left: 0; top: 0; }
