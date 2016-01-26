@@ -12,6 +12,7 @@ import Maybe
 import Array
 import Utils exposing (..)
 import Debug
+import Utils.Matrix as Matrix'
 
 
 
@@ -70,12 +71,9 @@ charListToModel: (List String) -> SudokuModel
 charListToModel lines =
     let
         charToCell c =
-            if c == '.' then
-               Possibles (Set.fromList [1..9])
-           else
-                case String.toInt (String.fromChar c) of
-                    Ok value -> Filled value
-                    Err error -> Bug
+            case String.toInt (String.fromChar c) of
+                Ok value -> Filled value
+                Err _ -> Possibles (Set.fromList [1..9])
     in
        Matrix.fromList ( List.map (\line -> 
            List.map charToCell (String.toList line)
@@ -84,30 +82,10 @@ charListToModel lines =
 init : Model
 init =
     let 
-        model = charListToModel extreme
-    in
-        {
-            new = model
-            , old = model
-        }
+        model = charListToModel hard
+    in { new = model , old = model }
 
-subMatrix: (Int,Int) -> (Int,Int) -> Matrix a -> Matrix a
-subMatrix loc size matrix = 
-    let
-        (r0,c0) = loc
-        (rct, cct) = size
-        slice list start size = List.take size (List.drop start list)
-        rows = slice (Matrix.toList matrix) r0 rct
-        newRows = List.map (\row -> slice row c0 cct) rows
-    in
-       Matrix.fromList newRows
 
-extractColumn: Int -> Matrix a -> List a
-extractColumn c m =
-   if c < 0 || c >= (Matrix.colCount m) then
-      []
-  else
-    List.filterMap ( \rowNr -> Matrix.get (rowNr, c) m) [0..(Matrix.rowCount m)]
         
 
 -- return only the Filled values from a list
@@ -125,30 +103,24 @@ filledInValues list =
 removePossiblesFromLines: SudokuModel -> SudokuModel
 removePossiblesFromLines model =
     let
-        -- rowValues and columnValues are arrays of Set Int
-        -- they represent for each row or column those values that are already picked
+        -- rowValues and columnValues represent for each row or column those values that are already picked
         rowValues: Array.Array (Set.Set Int)
         rowValues = Array.map (\rowArray -> filledInValues (Array.toList rowArray)) model
         columnValues: Array.Array (Set.Set Int)
         columnValues = Array.fromList ( List.map (\colNr -> 
-            filledInValues  (extractColumn colNr model) 
+            filledInValues  (Matrix'.extractColumn colNr model) 
         ) [0..((Matrix.colCount model)-1)])
-        filter location el =
-            let
-                (r,c)=location
-            in
-               case el of
-                   Filled _ ->
-                       el
-                   Possibles possibles ->
-                       let
-                           rowSet = Maybe.withDefault Set.empty (Array.get r rowValues)
-                           colSet = Maybe.withDefault Set.empty (Array.get c columnValues)
-                           allSet = Set.union rowSet colSet
-                       in
-                           Possibles (Set.diff possibles allSet)
-                   Bug ->
-                       Bug
+        filter (r,c) el =
+           case el of
+               Possibles possibles ->
+                   let
+                       rowSet = Maybe.withDefault Set.empty (Array.get r rowValues)
+                       colSet = Maybe.withDefault Set.empty (Array.get c columnValues)
+                       allSet = Set.union rowSet colSet
+                   in
+                       Possibles (Set.diff possibles allSet)
+               _ ->
+                   el
     in
        Matrix.mapWithLocation filter model
 
@@ -163,7 +135,7 @@ handleSingleOnLine model =
          coordModel = Matrix.mapWithLocation (,) model
          rowsAndColumns: List (List (Location, Cell))
          rowsAndColumns = Matrix.toList coordModel ++  List.map (\colNr ->
-             extractColumn colNr coordModel
+             Matrix'.extractColumn colNr coordModel
          ) [0..((Matrix.colCount coordModel)-1)]
          unFilleds: List (List (Location, Set.Set Int))
          unFilleds = 
@@ -189,16 +161,13 @@ handleSingleOnLine model =
                     Filled single
         ) model
 
-handlePairsInLine: Int -> SudokuModel -> SudokuModel
-handlePairsInLine groupCt model =
+handleGroupsInLine: Int -> SudokuModel -> SudokuModel
+handleGroupsInLine groupCt model =
      let
-
-
-
          coordModel = Matrix.mapWithLocation (,) model
          rowsAndColumns: List (List (Location, Cell))
          rowsAndColumns = Matrix.toList coordModel ++  List.map (\colNr ->
-             extractColumn colNr coordModel
+             Matrix'.extractColumn colNr coordModel
          ) [0..((Matrix.colCount coordModel)-1)] 
 
          vector' = \x -> vector groupCt x
@@ -206,7 +175,6 @@ handlePairsInLine groupCt model =
          --   [([(8,0),(8,2),(8,4),(8,6),(8,8)],[(Set.fromList [(8,0),(8,2)],Set.fromList [7,9])])]
          vectors: List ( List Location , List ( Set.Set Location, Set.Set Int ))
          vectors = List.filterMap vector' rowsAndColumns
-
      in
        modelUpdaterFromGroups model vectors
 
@@ -220,7 +188,6 @@ vector groupCt cells =
                      Just (loc, possibles)
                  _ ->
                      Nothing
-
          ) cells
          groupLists: List (List Location, Set.Set Int)
          groupLists = Utils.findMultiples' filleds groupCt |> Dict.toList 
@@ -228,9 +195,9 @@ vector groupCt cells =
          filledLocations: List Location
          filledLocations = List.map fst filleds 
      in
-        case groupSets of
+        (Debug.log "vector" (case groupSets of
             [] -> Nothing
-            _ -> Just (filledLocations, groupSets)
+            _ -> Just (filledLocations, groupSets)))
 
 modelUpdaterFromGroups: SudokuModel -> List ( List Location , List ( Set.Set Location, Set.Set Int )) ->SudokuModel
 modelUpdaterFromGroups model vectors = 
@@ -257,25 +224,24 @@ modelUpdaterFromGroups model vectors =
                          cellUpdater location cell
                     ) accu
                  ) m locations
-         
          colupdater': List Location -> List (Set.Set Location, Set.Set Int ) -> SudokuModel -> SudokuModel
          colupdater' locations groups m =
              List.foldl (\(group, groupValues) accu ->
                  colupdater locations group groupValues accu
              ) m groups
-     in   
+     in
         List.foldl (\(locations, groups) accu ->
              colupdater' locations groups accu
          ) model vectors 
 
-handlePairsInSquare: Int -> SudokuModel -> SudokuModel
-handlePairsInSquare groupCt model =
+handleGroupsInSquare: Int -> SudokuModel -> SudokuModel
+handleGroupsInSquare groupCt model =
     let
         coordModel: Matrix (Location, Cell)
         coordModel = model |> (Matrix.mapWithLocation (,))
 
         squares = Matrix.square 3 (\(r,c) ->
-                subMatrix (3*r, 3*c) (3,3) coordModel |> Matrix.flatten )
+                Matrix'.subMatrix (3*r, 3*c) (3,3) coordModel |> Matrix.flatten )
             |> Matrix.flatten 
         vector' = \x -> vector groupCt x
         vectors: List ( List Location , List ( Set.Set Location, Set.Set Int ))
@@ -290,7 +256,7 @@ removePossiblesFromSquares model =
     let
         subMatrices = Matrix.square 3 (\(r,c) ->
             let
-                matrix3x3 = subMatrix (3*r, 3*c) (3,3) model
+                matrix3x3 = Matrix'.subMatrix (3*r, 3*c) (3,3) model
                 values = filledInValues (Matrix.flatten matrix3x3)
             in
                (matrix3x3, values))
@@ -327,46 +293,36 @@ handle1Possibles model =
 -- UPDATE
 
 type Action = RemovePossiblesFromSquare | RemovePossiblesFromLines | Handle1Possibles | 
-        HandleSingleOnLine | HandleSinglesInSquare | HandlePairsInSquare | HandleTripletsInSquare | 
-        HandlePairsInLine | HandleTripletsInLine | Undo | Test
+        HandleSingleOnLine | HandleGroupsInSquare Int |  HandleGroupsInLine Int | 
+        Undo | Test
 
 update : Action -> Model -> Model
 update action model =
     let
-        oldold = model.old
-        old = .new model
+        new = model.new
         updater = 
           case (Debug.log "action" action) of
             RemovePossiblesFromSquare ->
-              removePossiblesFromSquares old
+              removePossiblesFromSquares new
             RemovePossiblesFromLines ->
-              removePossiblesFromLines old
+              removePossiblesFromLines new
             Handle1Possibles ->
-              old |> removePossiblesFromLines |> removePossiblesFromSquares |> handle1Possibles
+              new |> removePossiblesFromLines |> removePossiblesFromSquares |> handle1Possibles
             HandleSingleOnLine ->
-              old |> removePossiblesFromLines |> removePossiblesFromSquares |> handleSingleOnLine
-            HandleSinglesInSquare ->
-              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInSquare 1)
-            HandlePairsInSquare ->
-              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInSquare 2)
-            HandleTripletsInSquare ->
-              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInSquare 3)
-            HandlePairsInLine ->
-              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInLine 2)
-            HandleTripletsInLine ->
-              old |> removePossiblesFromLines |> removePossiblesFromSquares |> (handlePairsInLine 3)
+              new |> removePossiblesFromLines |> removePossiblesFromSquares |> handleSingleOnLine
+            HandleGroupsInSquare ct ->
+              new |> removePossiblesFromLines |> removePossiblesFromSquares |> (handleGroupsInSquare ct)
+            HandleGroupsInLine ct ->
+              new |> removePossiblesFromLines |> removePossiblesFromSquares |> (handleGroupsInLine ct)
             Undo ->
-                oldold
+                model.old
             Test ->
                 let 
-                    m=handleSingleOnLine old
+                    m=handleSingleOnLine new
                 in
-                  old
+                  new
     in
-       {
-           old = old
-           ,new = updater
-       }
+       { old = new ,new = updater }
 
 
 -- VIEW
@@ -374,8 +330,8 @@ update action model =
 view : Signal.Address Action -> Model -> Html
 view address model =
     let
-        new = .new model
-        old = .old model
+        new = model.new
+        old = model.old
         rows new = List.map2 (,) (Matrix.toList old) (Matrix.toList new)
         oneCell (oldCell,cell) = 
             let
@@ -427,11 +383,11 @@ view address model =
              , (RemovePossiblesFromLines, "remove possibles from hor. and vert. lines")
              , (Handle1Possibles, "#1, #2 and fill 1 single possibles in 3x3 squares")
              , (HandleSingleOnLine, "#1, #2 and fill 1 single possible location in rows or columns")
-             , (HandleSinglesInSquare, "#1, #2 and find singles in a square")
-             , (HandlePairsInSquare, "#1, #2 and find pairs in a square")
-             , (HandleTripletsInSquare, "#1, #2 and find triplets in a square")
-             , (HandlePairsInLine, "#1, #2 and find pairs in a line")
-             , (HandleTripletsInLine, "#1, #2 and find triplets in a line")
+             , (HandleGroupsInSquare 1, "#1, #2 and find singles in a square")
+             , (HandleGroupsInSquare 2, "#1, #2 and find pairs in a square")
+             , (HandleGroupsInSquare 3, "#1, #2 and find triplets in a square")
+             , (HandleGroupsInLine 2, "#1, #2 and find pairs in a line")
+             , (HandleGroupsInLine 3, "#1, #2 and find triplets in a line")
              , (Test, "testing..")
              , (Undo, "undo..")
              ] )

@@ -24,7 +24,7 @@ claim_findSingles_finds_values_that_exist_only_once =
     ( \tuples -> 
         let
             singles: Set.Set (Int,Int)
-            singles  = (Utils.findSingles tuples) |> List.sort |> Set.fromList 
+            singles  = Utils.findSingles tuples  |> List.sort |> Set.fromList 
             allValues: List (Int)
             allValues = List.foldl (\(key, values) accu ->
                 Set.union accu values
@@ -36,13 +36,15 @@ claim_findSingles_finds_values_that_exist_only_once =
                         True -> Just key
                         False -> Nothing
                 ) tuples)
-            ) allValues 
+            ) allValues
             valuesOnOnlyOneLocation: Set.Set (Int,Int)
             valuesOnOnlyOneLocation = List.filterMap (\(value, locations) ->
                 case locations of
                     [loc] -> Just (loc, value)
                     _ -> Nothing
-                ) locationsMap |> List.sort |> Set.fromList
+                ) locationsMap |> List.sort |> Set.fromList 
+            compare = (Debug.log "values" valuesOnOnlyOneLocation) == (Debug.log "singles" singles) 
+            |> (Debug.log "compare")
         in
            valuesOnOnlyOneLocation == singles
 
