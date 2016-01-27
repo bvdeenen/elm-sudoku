@@ -1,6 +1,8 @@
-## Preview
+## Sudoku solver
 
-Click [here](http://evancz.github.io/elm-architecture-tutorial/examples/1) to see it running.
+Application that can be used to solve Sudoku's. In progress
+
+Click [here](http://bvdeenen.github.io/sudoku/index.html) to see it running.
 
 
 ## Run Locally
@@ -9,16 +11,10 @@ Click [here](http://evancz.github.io/elm-architecture-tutorial/examples/1) to se
 
 If you do not have this repo on your computer yet, run these commands.
 
-```bash
-git clone https://github.com/evancz/elm-architecture-tutorial.git
-cd elm-architecture-tutorial
-```
-
-Once you are in the `elm-architecture-tutorial/` directory, run these commands:
 
 ```bash
-cd examples/1/
+make
 elm-reactor
 ```
 
-And then open [http://localhost:8000/Main.elm](http://localhost:8000/Main.elm) to see it in action!
+And then open [http://localhost:8000/index.html](http://localhost:8000/index.html) to see it in action!
