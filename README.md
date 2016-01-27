@@ -18,3 +18,11 @@ elm-reactor
 ```
 
 And then open [http://localhost:8000/index.html](http://localhost:8000/index.html) to see it in action!
+
+## Quickcheck
+
+Some of the functions are tested via quickcheck. Run via
+
+```
+make quickcheck
+```
